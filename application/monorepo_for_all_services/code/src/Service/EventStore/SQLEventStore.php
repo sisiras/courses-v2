@@ -24,9 +24,12 @@ class SQLEventStore implements EventStore
 {
     private Connection $connection;
 
-    public function __construct(SQLEventStoreConnection $SQLEventStoreConnection)
+    private string $eventStoreTableName;
+
+    public function __construct(SQLEventStoreConnection $SQLEventStoreConnection, string $eventStoreTableName)
     {
         $this->connection = $SQLEventStoreConnection->getConnection();
+        $this->eventStoreTableName = $eventStoreTableName;
     }
 
     public function beginTransaction(): void
@@ -75,7 +78,7 @@ class SQLEventStore implements EventStore
                 throw new FindingAggregateRequiresActiveTransaction();
             }
 
-            $statement = $this->connection->prepare('SELECT * FROM `event` WHERE `aggregate_id` = ? FOR UPDATE');
+            $statement = $this->connection->prepare('SELECT * FROM `'.$this->eventStoreTableName.'` WHERE `aggregate_id` = ? FOR UPDATE');
             $statement->bindValue(1, $aggregateId);
 
             $eventArrays = $statement->executeQuery()->fetchAllAssociative();
@@ -122,7 +125,7 @@ class SQLEventStore implements EventStore
                 throw new FindingAggregateRequiresActiveTransaction();
             }
 
-            $statement = $this->connection->prepare('SELECT * FROM `event` WHERE `event_id` = ? FOR UPDATE');
+            $statement = $this->connection->prepare('SELECT * FROM `'.$this->eventStoreTableName.'` WHERE `event_id` = ? FOR UPDATE');
             $statement->bindValue(1, $eventId);
 
             $eventArray = $statement->executeQuery()->fetchAssociative();
@@ -157,7 +160,7 @@ class SQLEventStore implements EventStore
 
             $serializedEvent = EventSerializer::eventsToSerializedEvents([$event])[0];
 
-            $this->connection->insert('event',
+            $this->connection->insert($this->eventStoreTableName,
                 [
                     'event_id' => $serializedEvent->eventId(),
                     'aggregate_id' => $serializedEvent->aggregateId(),
